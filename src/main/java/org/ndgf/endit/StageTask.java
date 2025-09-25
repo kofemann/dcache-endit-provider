@@ -158,7 +158,7 @@ class StageTask implements PollingTask<Set<Checksum>>
 
     private interface CLibrary extends Library
     {
-        CLibrary INSTANCE = (CLibrary) Native.loadLibrary("c", CLibrary.class);
+        CLibrary INSTANCE = (CLibrary) Native.load("c", CLibrary.class);
         int getpid();
     }
 }
