@@ -119,12 +119,27 @@ class StageTask implements PollingTask<Set<Checksum>>
         if (Files.isRegularFile(inFile) && Files.size(inFile) == size) {            
             Files.deleteIfExists(requestFile);            
             Thread.sleep(GRACE_PERIOD); 
-            try {
-                Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException e) {
-                System.err.println(e);
+
+            // Check if inFile still exists, we've slept for a while and another
+            // thread might have grabbed it. This isn't atomic so we might
+            // still get spurious benign Files.move() errors printed.
+            if(Files.exists(inFile) && Files.size(inFile) == size) {
+                try {
+                    Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
+                } catch (IOException e) {
+                    System.err.println(e);
+                }
+                return Collections.emptySet();
             }
-            return Collections.emptySet();
+            else if(Files.exists(file) && Files.size(file) == size) {
+                // Another thread has already moved the staged file.
+                return Collections.emptySet();
+            }
+            else {
+                // Neither staged inFile or target file exists, error out.
+                List<String> err = List.of("Failed to move staged file in place, neither staged inFile nor target file exists.", "This is likely an ENDIT provider bug and should never happen.");
+                throw EnditException.create(err);
+            }
         }
         return null;
     }
