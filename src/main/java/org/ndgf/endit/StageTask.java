@@ -87,6 +87,11 @@ class StageTask implements PollingTask<Set<Checksum>>
             Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
             return Collections.emptySet();
         }
+        else if (Files.isRegularFile(file) && Files.size(file) == size) {
+            // The file already exists at its final destination, no need to
+            // do more...
+            return Collections.emptySet();
+        }
   
         JsonObject jsObj = new JsonObject();
         jsObj.addProperty("file_size", size);
