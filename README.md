@@ -38,33 +38,17 @@ hsm create osm the-hsm-name endit-polling -directory=/path/to/endit/directory
 The endit directory must be on the same file system as the pool's
 data directory.
 
-This provider accepts two additional options with the following default
+The polling provider accepts two additional options with the following default
 values:
 
-    -threads=20
-    -period=5000
+    -threads=50
+    -period=1100
 
 The first is the number of threads used for polling for file changes
 and the second is the poll period in milliseconds.
 
 For sites with large request queues we recommend to increase the thread
 count further, 200 threads are used in production on NDGF.
-
-#### Notes on the provider behaviour
-
-* The polling provider does *not* monitor the request files, once they are created.
-  Editing or deleting them has no consequences from the perspective of dCache.
-* The polling provider will check whether a requested file does exist already in the `/in` folder,
-  before it writes a new request file and, if so, move it into the pool's inventory without staging anything.
-* The polling provider will *overwrite* existing request files, when the pool receives a request
-  (that isn't satisfied by the content of the `/in` folder).
-  That is important regarding *retries* of recalls from the pool and *pool restarts*!
-* The polling provider will check for *error files* with every poll.
-  If such a file exists for a requested file, it's content is read and verbatim raised as an
-  exception from the staging task. Because the exception is raised, the task will be aborted
-  and all related files should get purged.
-* The error file's path has to be `/request/<pnfsid>.err`
-* Shutting down the polling provider and/or the pool does clean up existing request files.
 
 ### Watching provider
 
@@ -78,8 +62,41 @@ The endit directory must be on the same file system as the pool's
 data directory.
 
 The above will create a provider that uses the JVMs file event
-notification feature which in most cases maps directly to a native
-file event notification facility of the operating system.
+notification feature to detect files created/deleted in the stage/flush
+processes. File completion is monitored using polling in the same way as
+the polling provider.
+
+The watching provider accepts additional options with the following default
+values:
+
+    -threads=50
+    -period=110
+    -watchtimeout=300
+
+threads is the number of threads used for polling for file completion,
+period is the poll period in milliseconds and watchtimeout is the
+timeout in seconds when a double-check is triggered of the state of
+watched directories in case of lost notification events.
+
+The default poll period for the watching provider is much lower compared
+to the polling provider, this is due to the fact that only files in
+progress are monitored using polling.
+
+### Notes on the provider behaviour
+
+* Providers does *not* monitor the request files once they are created.
+  Editing or deleting them has no consequences from the perspective of dCache.
+* Providers will check whether a requested file does exist already in the `/in` folder,
+  before it writes a new request file and, if so, move it into the pool's inventory without staging anything.
+* Providers will *overwrite* existing request files, when the pool receives a request
+  (that isn't satisfied by the content of the `/in` folder).
+  That is important regarding *retries* of recalls from the pool and *pool restarts*!
+* Providers will check for *error files* with every poll.
+  If such a file exists for a requested file, it's content is read and verbatim raised as an
+  exception from the staging task. Because the exception is raised, the task will be aborted
+  and all related files should get purged.
+* The error file's path has to be `/request/<pnfsid>.err`
+* Shutting down the provider and/or the pool does clean up existing request files.
 
 ## More documentation
 

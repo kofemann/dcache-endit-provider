@@ -133,53 +133,60 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
     @Override
     protected ListenableFuture<Set<Checksum>> stage(final StageRequest request)
     {
-        final PollingTask<Set<Checksum>> task = new StageTask(request, requestDir, inDir);
+        final PollingStageTask<Boolean> starttask = new StageTask(request, requestDir, inDir);
+        final PollingStageTask<Boolean> completetask = new StageTask(request, requestDir, inDir);
 
-        // This is an ugly workaround to delay space allocation until after
-        // (pre)stage has happened. It has multiple quirks:
-        // 1) Someone with more Java knowledge should be able to carry the
-        //    returned checksums forward instead of discarding it and
-        //    recreating the empty checksum list later on.
-        // 2) Allocation happens after the file has been moved to final
-        //    destination by StageTask. The impact of this is mostly esthectic.
         return Futures.transformAsync(
             Futures.transformAsync(
                 Futures.transformAsync(
-                        request.activate()
-                        ,
-                        new AsyncFunction<Void, Set<Checksum>>()
+                    Futures.transformAsync(
+                            request.activate()
+                            ,
+                            new AsyncFunction<Void, Boolean>()
+                            {
+                                @Override
+                                public ListenableFuture<Boolean> apply(Void ignored) throws Exception
+                                {
+                                    Boolean done = starttask.start();
+                                    if (done!=null && done) {
+                                        return Futures.immediateFuture(done);
+                                    } else {
+                                        return schedule(starttask);
+                                    }
+                                }
+                            }, executor()
+                        ),
+
+                        new AsyncFunction<Boolean, Void>()
                         {
                             @Override
-                            public ListenableFuture<Set<Checksum>> apply(Void ignored) throws Exception
+                            public ListenableFuture<Void> apply(Boolean ignored) throws Exception
                             {
-                                Set<Checksum> checksums = task.start();
-                                if (checksums != null) {
-                                    return Futures.immediateFuture(checksums);
-                                } else {
-                                    return schedule(task);
-                                }
+                                return request.allocate();
                             }
                         }, executor()
                     ),
-
-                    new AsyncFunction<Set<Checksum>, Void>()
+                    new AsyncFunction<Void, Boolean>()
                     {
                         @Override
-                        public ListenableFuture<Void> apply(Set<Checksum> checksums) throws Exception
+                        public ListenableFuture<Boolean> apply(Void ignored) throws Exception
                         {
-                            return request.allocate();
+                            Boolean done = completetask.complete();
+                            if (done!=null && done) {
+                                return Futures.immediateFuture(done);
+                            } else {
+                                return schedule(completetask);
+                            }
                         }
                     }, executor()
                 ),
 
-            // Return the empty checksum set we discarded earlier, this
-            // needs to be fixed if ENDIT gains knowledge of checksums.
-            new AsyncFunction<Void, Set<Checksum>>()
+            new AsyncFunction<Boolean, Set<Checksum>>()
             {
                 @Override
-                public ListenableFuture<Set<Checksum>> apply(Void ignored) throws Exception
+                public ListenableFuture<Set<Checksum>> apply(Boolean ignored) throws Exception
                 {
-                    return Futures.immediateFuture(Collections.emptySet());
+                    return Futures.immediateFuture(completetask.checksum());
                 }
             }, executor()
         );

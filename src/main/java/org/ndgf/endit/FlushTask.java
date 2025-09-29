@@ -74,6 +74,12 @@ class FlushTask implements PollingTask<Set<URI>>
         checksums = request.getFileAttributes().getChecksums();
     }
 
+    @Override
+    public boolean canWatch()
+    {
+        return true;
+    }
+
     public List<Path> getFilesToWatch()
     {
         return asList(outFile);

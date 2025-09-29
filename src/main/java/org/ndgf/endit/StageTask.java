@@ -43,7 +43,7 @@ import static java.util.Arrays.asList;
 import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
 
-class StageTask implements PollingTask<Set<Checksum>>
+class StageTask implements PollingStageTask<Boolean>
 {
     public static final int ERROR_GRACE_PERIOD = 1000;
 
@@ -52,7 +52,7 @@ class StageTask implements PollingTask<Set<Checksum>>
     private static final int PID = CLibrary.INSTANCE.getpid();
 
     private final static Logger LOGGER = LoggerFactory.getLogger(StageTask.class);
-    
+
     private final Path file;
     private final Path inFile;
     private final Path errorFile;
@@ -60,6 +60,10 @@ class StageTask implements PollingTask<Set<Checksum>>
     private final long size;
     private final String storageClass;
     private final String path;
+    private long delayUntil;
+    private boolean doStart;
+    private boolean doComplete;
+    private boolean doWatch;
 
     StageTask(StageRequest request, Path requestDir, Path inDir)
     {
@@ -72,6 +76,16 @@ class StageTask implements PollingTask<Set<Checksum>>
         requestFile = requestDir.resolve(id);
         storageClass = fileAttributes.getStorageClass();
         path = request.getFileAttributes().getStorageInfo().getMap().get("path");
+        delayUntil = -1;
+        doStart = false;
+        doComplete = false;
+        doWatch = false;
+    }
+
+    @Override
+    public boolean canWatch()
+    {
+        return this.doWatch;
     }
 
     @Override
@@ -80,19 +94,20 @@ class StageTask implements PollingTask<Set<Checksum>>
         return asList(errorFile, inFile);
     }
 
+
+    /* start() returns when inFile exists. */
     @Override
-    public Set<Checksum> start() throws Exception
+    public Boolean start() throws Exception
     {
-        if (Files.isRegularFile(inFile) && Files.size(inFile) == size) {
-            Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
-            return Collections.emptySet();
+        assert !doComplete : "Internal ENDIT provider bug: complete() called before start()";
+
+        doStart = true;
+        doWatch = true;
+
+        if (Files.isRegularFile(inFile)) {
+            return true;
         }
-        else if (Files.isRegularFile(file) && Files.size(file) == size) {
-            // The file already exists at its final destination, no need to
-            // do more...
-            return Collections.emptySet();
-        }
-  
+
         JsonObject jsObj = new JsonObject();
         jsObj.addProperty("file_size", size);
         jsObj.addProperty("parent_pid", PID);
@@ -106,8 +121,24 @@ class StageTask implements PollingTask<Set<Checksum>>
         return null;
     }
 
+    /* complete() completes processing with waiting for a
+     * complete inFile, grace delay for file attributes to be set, and moves
+     * it to outFile.
+     */
     @Override
-    public Set<Checksum> poll() throws IOException, InterruptedException, EnditException
+    public Boolean complete() throws Exception
+    {
+        assert !doStart : "Internal ENDIT provider bug: start() called before complete()";
+
+        doComplete = true;
+
+        return poll();
+    }
+
+
+    /* poll() handles both start() and complete() initiated tasks */
+    @Override
+    public Boolean poll() throws IOException, InterruptedException, EnditException
     {
         if (Files.exists(errorFile)) {
             List<String> lines;
@@ -121,32 +152,40 @@ class StageTask implements PollingTask<Set<Checksum>>
             }
             throw EnditException.create(lines);
         }
-        if (Files.isRegularFile(inFile) && Files.size(inFile) == size) {            
-            Files.deleteIfExists(requestFile);            
-            Thread.sleep(GRACE_PERIOD); 
 
-            // Check if inFile still exists, we've slept for a while and another
-            // thread might have grabbed it. This isn't atomic so we might
-            // still get spurious benign Files.move() errors printed.
-            if(Files.exists(inFile) && Files.size(inFile) == size) {
-                try {
-                    Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
-                } catch (IOException e) {
-                    System.err.println(e);
-                }
-                return Collections.emptySet();
-            }
-            else if(Files.exists(file) && Files.size(file) == size) {
-                // Another thread has already moved the staged file.
-                return Collections.emptySet();
-            }
-            else {
-                // Neither staged inFile or target file exists, error out.
-                List<String> err = List.of("Failed to move staged file in place, neither staged inFile nor target file exists.", "This is likely an ENDIT provider bug and should never happen.");
-                throw EnditException.create(err);
+        if(doStart) {
+            if (Files.isRegularFile(inFile)) {
+                return true;
             }
         }
+        else if(doComplete) {
+            if(Files.isRegularFile(inFile) && Files.size(inFile) == size) {
+                if(delayUntil < 0) {
+                    Files.deleteIfExists(requestFile);
+                    delayUntil = System.currentTimeMillis() + GRACE_PERIOD;
+                    return null;
+                }
+                if(delayUntil > 0 && System.currentTimeMillis() < delayUntil) {
+                    return null;
+                }
+
+                Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
+                return true;
+            }
+        }
+        else {
+            // Neither start() or complete() called.
+            List<String> err = List.of("Internal ENDIT provider bug.", "StageTask: neither start() nor complete() called before poll().");
+            throw EnditException.create(err);
+        }
         return null;
+    }
+
+    @Override
+    public Set<Checksum> checksum() throws Exception
+    {
+        // No proper checksum retention yet.
+        return Collections.emptySet();
     }
 
     @Override

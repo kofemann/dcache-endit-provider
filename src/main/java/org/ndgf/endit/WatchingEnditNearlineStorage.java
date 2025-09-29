@@ -19,7 +19,9 @@ package org.ndgf.endit;
 
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableScheduledFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Variant of the Endit nearline storage using a WatchService.
@@ -48,6 +51,11 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
     private final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
     private Future<?> watchTask;
 
+    protected ListeningScheduledExecutorService schedexec;
+
+    protected int period;
+    protected int watchtimeout;
+
     public WatchingEnditNearlineStorage(String type, String name)
     {
         super(type, name);
@@ -56,11 +64,23 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
     @Override
     public synchronized void configure(Map<String, String> properties) throws IllegalArgumentException
     {
+        int threads = Integer.parseInt(properties.getOrDefault("threads", "50"));
+        int period = Integer.parseInt(properties.getOrDefault("period", "110")); /* ms */
+        int watchtimeout = Integer.parseInt(properties.getOrDefault("watchtimeout", "300")); /* seconds */
+
         super.configure(properties);
         if (watchTask != null) {
             watchTask.cancel(true);
             watchTask = executor.submit(new WatchTask());
         }
+
+        this.period = period;
+        this.watchtimeout = watchtimeout;
+
+        if (schedexec != null) {
+            schedexec.shutdown();
+        }
+        schedexec = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(threads));
     }
 
     @Override
@@ -89,6 +109,7 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
             watchTask.cancel(true);
         }
         executor.shutdown();
+        schedexec.shutdown();
     }
 
     private class WatchTask implements Runnable
@@ -97,14 +118,26 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
         public void run()
         {
             try (WatchService watcher = FileSystems.getDefault().newWatchService()) {
-                outDir.register(watcher, StandardWatchEventKinds.ENTRY_DELETE);
-                inDir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY);
-                requestDir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_DELETE);
+                /* Watch event types are hard-coded per directory. Since the
+                 * Java implementation doesn't support the inotify CLOSE_WRITE
+                 * event we can only cover the basic create/delete events.
+                 * Notably MODIFY can't be used since it causes event storms
+                 * due to generating an event for each write operation to a
+                 * file in the watched directory.
+                 */
+                outDir.register(watcher, StandardWatchEventKinds.ENTRY_DELETE); // Flushed files
+                inDir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE); // Staged files
+                requestDir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE); // Error files
 
                 pollAll();
 
                 while (!Thread.currentThread().isInterrupted()) {
-                    WatchKey key = watcher.take();
+                    WatchKey key = watcher.poll(watchtimeout, TimeUnit.SECONDS);
+                    if(key == null) {
+                        /* Watch poll timeout, double-check that we're in sync */
+                        pollAll();
+                        continue;
+                    }
                     Path dir = (Path) key.watchable();
                     for (WatchEvent<?> event : key.pollEvents()) {
                         if (event.kind().equals(StandardWatchEventKinds.OVERFLOW)) {
@@ -147,19 +180,30 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
     /**
      * Represents the future result of a PollingTask.
      *
-     * Periodically polls the task to check whether it has completed. If this Future
-     * is cancelled, the task is aborted.
+     * For this Watching provider, we leverage the task canWatch() and
+     * getFilesToWatch() methods to enable watch events.
+     *
+     * If watch events can't be used, fall back to scheduled polling.
+     *
+     * If this Future is cancelled, the task is aborted.
      *
      * @param <V> The result type returned by this Future's <tt>get</tt> method
      */
-    private class TaskFuture<V> extends AbstractFuture<V>
+    private class TaskFuture<V> extends AbstractFuture<V> implements Runnable
     {
         private final PollingTask<V> task;
+        private ListenableScheduledFuture<?> future;
 
         TaskFuture(PollingTask<V> task)
         {
             this.task = task;
-            register();
+            if(task.canWatch()) {
+                register();
+                future = null;
+            }
+            else {
+                future = schedexec.schedule(this, period, TimeUnit.MILLISECONDS);
+            }
         }
 
         private void register()
@@ -187,6 +231,9 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
                         unregister();
                         set(result);
                     }
+                    else if(future != null) {
+                        future = schedexec.schedule(this, period, TimeUnit.MILLISECONDS);
+                    }
                 }
             } catch (Exception e) {
                 try {
@@ -197,6 +244,12 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
                 unregister();
                 setException(e);
             }
+        }
+
+        @Override
+        public synchronized void run()
+        {
+            poll();
         }
 
         @Override

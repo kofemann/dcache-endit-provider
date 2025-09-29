@@ -19,6 +19,8 @@ package org.ndgf.endit;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import org.dcache.util.Checksum;
 
 /**
  * A polling task has an initiating action (start), followed by periodic polls
@@ -28,6 +30,9 @@ import java.util.List;
  */
 interface PollingTask<T>
 {
+    /** Returns true if we can use watch events for this task. */
+    boolean canWatch();
+
     /** Returns the list of files to watch for events. */
     List<Path> getFilesToWatch();
 
@@ -48,4 +53,18 @@ interface PollingTask<T>
      * (presumably because the task already completed).
      */
     boolean abort() throws Exception;
+
+}
+
+interface PollingStageTask<T> extends PollingTask<T>
+{
+    /** Called to complete the task. */
+    T complete() throws Exception;
+
+    /**
+     * Called to get the checksum
+     *
+     * @return Checksum
+     */
+    Set<Checksum> checksum() throws Exception;
 }
