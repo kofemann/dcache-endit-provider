@@ -152,8 +152,13 @@ class StageTask implements PollingTask<Set<Checksum>>
     @Override
     public boolean abort() throws Exception
     {
-       return Files.deleteIfExists(requestFile) && Files.deleteIfExists(errorFile) && Files.deleteIfExists(inFile);
-      
+       // Only delete the requestFile and eventual errorFile. The rationale
+       // behind this is that the request has likely timed out and will be
+       // retried shortly, saving us from having the daemon stage it again.
+       Files.deleteIfExists(requestFile);
+       Files.deleteIfExists(errorFile);
+
+       return true;
     }
 
     private interface CLibrary extends Library
