@@ -191,9 +191,10 @@ class StageTask implements PollingStageTask<Boolean>
     @Override
     public boolean abort() throws Exception
     {
-       // Only delete the requestFile and eventual errorFile. The rationale
-       // behind this is that the request has likely timed out and will be
-       // retried shortly, saving us from having the daemon stage it again.
+       /* Only delete the requestFile and eventual errorFile. The rationale
+        * behind this is that the request has likely timed out and will be
+        * retried shortly, saving us from having the daemon stage it again.
+        */
        Files.deleteIfExists(requestFile);
        Files.deleteIfExists(errorFile);
 
