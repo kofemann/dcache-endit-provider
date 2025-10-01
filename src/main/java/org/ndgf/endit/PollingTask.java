@@ -55,16 +55,3 @@ interface PollingTask<T>
     boolean abort() throws Exception;
 
 }
-
-interface PollingStageTask<T> extends PollingTask<T>
-{
-    /** Called to complete the task. */
-    T complete() throws Exception;
-
-    /**
-     * Called to get the checksum
-     *
-     * @return Checksum
-     */
-    Set<Checksum> checksum() throws Exception;
-}

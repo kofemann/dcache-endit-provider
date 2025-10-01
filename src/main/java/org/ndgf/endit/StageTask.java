@@ -202,7 +202,7 @@ class StageTask implements PollingStageTask<Boolean>
 
     private interface CLibrary extends Library
     {
-        CLibrary INSTANCE = (CLibrary) Native.load("c", CLibrary.class);
+        CLibrary INSTANCE = Native.load("c", CLibrary.class);
         int getpid();
     }
 }
