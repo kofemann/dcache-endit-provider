@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.Callable;
 
 import org.dcache.pool.nearline.spi.RemoveRequest;
@@ -46,9 +47,14 @@ class RemoveTask implements Callable<Void>
         URI uri = request.getUri();
         String id = getPnfsId(uri);
 
-        /* Tell Endit to remove it from tape.
+        /* Tell the ENDIT daemon to remove it from nearline storage.
+         * Create the file and rename it in place to avoid consumers
+         * getting a 0-byte or half-written file.
          */
-        Files.write(trashDir.resolve(id), uri.toASCIIString().getBytes(StandardCharsets.UTF_8));
+        Path tmpf = Files.createTempFile(trashDir, id + ".", ".remove.tmp");
+        Files.write(tmpf, uri.toASCIIString().getBytes(StandardCharsets.UTF_8));
+        Files.move(tmpf, trashDir.resolve(id), StandardCopyOption.ATOMIC_MOVE);
+
         return null;
     }
 

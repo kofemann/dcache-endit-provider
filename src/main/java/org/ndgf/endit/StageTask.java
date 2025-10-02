@@ -53,10 +53,12 @@ class StageTask implements PollingStageTask<Boolean>
 
     private final static Logger LOGGER = LoggerFactory.getLogger(StageTask.class);
 
+    private final Path requestDir;
     private final Path file;
     private final Path inFile;
     private final Path errorFile;
     private final Path requestFile;
+    private final String id;
     private final long size;
     private final String storageClass;
     private final String path;
@@ -67,9 +69,10 @@ class StageTask implements PollingStageTask<Boolean>
 
     StageTask(StageRequest request, Path requestDir, Path inDir)
     {
+        this.requestDir = requestDir;
         file = Paths.get(request.getReplicaUri());
         FileAttributes fileAttributes = request.getFileAttributes();
-        String id = fileAttributes.getPnfsId().toString();
+        id = fileAttributes.getPnfsId().toString();
         size = fileAttributes.getSize();
         inFile = inDir.resolve(id);
         errorFile = requestDir.resolve(id + ".err");
@@ -115,8 +118,13 @@ class StageTask implements PollingStageTask<Boolean>
         jsObj.addProperty("storage_class", storageClass);
         jsObj.addProperty("action", "recall");
         jsObj.addProperty("path", path);
-    	    	
-        FileUtils.write(requestFile.toFile(), jsObj.toString(),  StandardCharsets.UTF_8);
+
+        /* Create the file and rename it in place to avoid consumers
+         * getting a 0-byte or half-written file.
+         */
+        Path tmpf = Files.createTempFile(requestDir, id + ".", ".stage.tmp");
+        FileUtils.write(tmpf.toFile(), jsObj.toString(),  StandardCharsets.UTF_8);
+        Files.move(tmpf, requestFile, StandardCopyOption.ATOMIC_MOVE);
  	
         return null;
     }

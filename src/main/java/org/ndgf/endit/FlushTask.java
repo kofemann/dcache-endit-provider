@@ -26,6 +26,7 @@ import java.net.URISyntaxException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,7 @@ import org.apache.commons.io.FileUtils;
 
 class FlushTask implements PollingTask<Set<URI>>
 {
+    private final Path requestDir;
     private final Path outFile;
     private final File file;
     private final PnfsId pnfsId;
@@ -65,6 +67,7 @@ class FlushTask implements PollingTask<Set<URI>>
     {
         this.type = type;
         this.name = name;
+        this.requestDir = requestDir;
         file = new File(request.getReplicaUri().getPath());
         outFile = outDir.resolve(file.getName());
         pnfsId = request.getFileAttributes().getPnfsId();
@@ -106,8 +109,13 @@ class FlushTask implements PollingTask<Set<URI>>
         jsObj.addProperty("path", path);
         jsObj.addProperty("checksumType", checksumType);
         jsObj.addProperty("checksumValue", checksumValue);
-    	
-        FileUtils.write(requestFile.toFile(), jsObj.toString(),  StandardCharsets.UTF_8);
+
+        /* Create the file and rename it in place to avoid consumers
+         * getting a 0-byte or half-written file.
+         */
+        Path tmpf = Files.createTempFile(requestDir, pnfsId.toString() + ".", ".flush.tmp");
+        FileUtils.write(tmpf.toFile(), jsObj.toString(),  StandardCharsets.UTF_8);
+        Files.move(tmpf, requestFile, StandardCopyOption.ATOMIC_MOVE);
          
         try {
             Files.createLink(outFile, file.toPath());
