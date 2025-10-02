@@ -1,6 +1,7 @@
 /* dCache Endit Nearline Storage Provider
  *
  * Copyright (C) 2014-2015 Gerd Behrmann
+ * Modifications Copyright (C) 2023-2025 Niklas Edmundsson
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
