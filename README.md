@@ -55,7 +55,7 @@ count further, 200 threads are used in production on NDGF.
 To use, define a nearline storage in the dCache admin interface:
 
 ```
-hsm create osm the-hsm-name endit -directory=/path/to/endit/directory
+hsm create osm the-hsm-name endit-watching -directory=/path/to/endit/directory
 ```
 
 The endit directory must be on the same file system as the pool's
