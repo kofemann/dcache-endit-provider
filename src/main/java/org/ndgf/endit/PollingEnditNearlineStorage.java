@@ -25,12 +25,17 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class PollingEnditNearlineStorage extends AbstractEnditNearlineStorage
 {
+    private final static Logger LOGGER = LoggerFactory.getLogger(WatchingEnditNearlineStorage.class);
+
     protected int period;
 
     protected ListeningScheduledExecutorService executor;
@@ -119,11 +124,14 @@ public class PollingEnditNearlineStorage extends AbstractEnditNearlineStorage
         @Override
         public synchronized boolean cancel(boolean mayInterruptIfRunning)
         {
+            LOGGER.debug("cancel called");
             if (isDone()) {
+                LOGGER.debug("cancel false (isDone)");
                 return false;
             }
             try {
                 if (!task.abort()) {
+                    LOGGER.debug("cancel false (task.abort false)");
                     return false;
                 }
                 super.cancel(mayInterruptIfRunning);
@@ -131,6 +139,7 @@ public class PollingEnditNearlineStorage extends AbstractEnditNearlineStorage
                 setException(e);
             }
             future.cancel(false);
+            LOGGER.debug("cancel true");
             return true;
         }
     }

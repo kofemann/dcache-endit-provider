@@ -108,6 +108,7 @@ class StageTask implements PollingStageTask<Boolean>
         doWatch = true;
 
         if (Files.isRegularFile(inFile)) {
+            LOGGER.debug("start: found " + inFile);
             return true;
         }
 
@@ -125,7 +126,8 @@ class StageTask implements PollingStageTask<Boolean>
         Path tmpf = Files.createTempFile(requestDir, id + ".", ".stage.tmp");
         FileUtils.write(tmpf.toFile(), jsObj.toString(),  StandardCharsets.UTF_8);
         Files.move(tmpf, requestFile, StandardCopyOption.ATOMIC_MOVE);
- 	
+        LOGGER.debug("start: wrote " + requestFile);
+
         return null;
     }
 
@@ -139,6 +141,8 @@ class StageTask implements PollingStageTask<Boolean>
         assert !doStart : "Internal ENDIT provider bug: start() called before complete()";
 
         doComplete = true;
+
+        LOGGER.debug("complete: called");
 
         return poll();
     }
@@ -163,21 +167,27 @@ class StageTask implements PollingStageTask<Boolean>
 
         if(doStart) {
             if (Files.isRegularFile(inFile)) {
+                LOGGER.debug("poll: found " + inFile);
                 return true;
             }
         }
         else if(doComplete) {
             if(Files.isRegularFile(inFile) && Files.size(inFile) == size) {
+                LOGGER.debug("poll: inFile " + inFile + " size " + size);
                 if(delayUntil < 0) {
                     Files.deleteIfExists(requestFile);
                     delayUntil = System.currentTimeMillis() + GRACE_PERIOD;
+                    LOGGER.debug("poll: inFile " + inFile + " delayUntil " + delayUntil);
                     return null;
                 }
                 if(delayUntil > 0 && System.currentTimeMillis() < delayUntil) {
+                    LOGGER.debug("poll: inFile " + inFile + " delaying");
                     return null;
                 }
 
                 Files.move(inFile, file, StandardCopyOption.ATOMIC_MOVE);
+                LOGGER.debug("poll: inFile " + inFile + " moved to " + file);
+
                 return true;
             }
         }
@@ -206,6 +216,7 @@ class StageTask implements PollingStageTask<Boolean>
        Files.deleteIfExists(requestFile);
        Files.deleteIfExists(errorFile);
 
+       LOGGER.debug("abort true");
        return true;
     }
 

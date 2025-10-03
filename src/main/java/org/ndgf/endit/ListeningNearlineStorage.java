@@ -21,6 +21,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.URI;
 import java.util.Set;
 import java.util.UUID;
@@ -41,10 +44,13 @@ public abstract class ListeningNearlineStorage implements NearlineStorage
 {
     private final ConcurrentMap<UUID, Future<?>> tasks = new ConcurrentHashMap<>();
 
+    private final static Logger LOGGER = LoggerFactory.getLogger(WatchingEnditNearlineStorage.class);
+
     @Override
     public void cancel(UUID uuid)
     {
         Future<?> task = tasks.get(uuid);
+        LOGGER.debug("cancel called");
         if (task != null) {
             task.cancel(true);
         }
@@ -95,12 +101,16 @@ public abstract class ListeningNearlineStorage implements NearlineStorage
             {
                 tasks.remove(request.getId());
                 try {
-                    request.completed(Uninterruptibles.getUninterruptibly(future));
+                    T result = Uninterruptibles.getUninterruptibly(future);
+                    LOGGER.debug("Calling request.completed(result)");
+                    request.completed(result);
                 } catch (ExecutionException | CancellationException e) {
                     if (e.getCause() instanceof EnditException) {
                         EnditException cause = (EnditException) e.getCause();
+                        LOGGER.debug("Calling request.failed(cause)");
                         request.failed(cause.getReturnCode(), cause.getMessage());
                     } else {
+                        LOGGER.debug("Calling request.failed(e)");
                         request.failed(e);
                     }
                 }

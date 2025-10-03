@@ -26,6 +26,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.Callable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.dcache.pool.nearline.spi.RemoveRequest;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,6 +37,8 @@ class RemoveTask implements Callable<Void>
 {
     private final RemoveRequest request;
     private final Path trashDir;
+
+    private final static Logger LOGGER = LoggerFactory.getLogger(FlushTask.class);
 
     public RemoveTask(RemoveRequest request, Path trashDir)
     {
@@ -54,6 +59,8 @@ class RemoveTask implements Callable<Void>
         Path tmpf = Files.createTempFile(trashDir, id + ".", ".remove.tmp");
         Files.write(tmpf, uri.toASCIIString().getBytes(StandardCharsets.UTF_8));
         Files.move(tmpf, trashDir.resolve(id), StandardCopyOption.ATOMIC_MOVE);
+
+        LOGGER.debug("call: wrote " + trashDir.resolve(id));
 
         return null;
     }

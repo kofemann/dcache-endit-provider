@@ -146,15 +146,17 @@ class FlushTask implements PollingTask<Set<URI>>
     @Override
     public boolean abort() throws IOException
     {
-
        /* If the outFile still exists, we can try to abort by deleting it and
         * hope that the daemon hasn't grabbed it for processing.
         */
        if(Files.deleteIfExists(outFile)) {
           Files.deleteIfExists(requestFile);
+
+          LOGGER.debug("abort true");
           return true;
        }
 
+       LOGGER.debug("abort false");
        return false;
     }
 }
