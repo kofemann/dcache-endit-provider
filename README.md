@@ -15,11 +15,11 @@ plugin directory (usually `/usr/local/share/dcache/plugins`).
 There are two flavors of the ENDIT provider: The polling provider and
 the watching provider.
 
-The polling provider is the most performant, this is what's used in
-production on NDGF and what we recommend to use.
+The watching provider uses the least system resources, and should be the
+most performant today when have huge queues.
 
-The watching provider uses the least system resources, but should not be
-used in any situation where there is a high rate of recalls.
+The polling provider is a good alternative if the watching provider has
+issues due to OS limitations.
 
 The pool must be configured to leave free space for [ENDIT daemons]
 (pre)staging, leave at least 1 TiB free. If you have very large files
@@ -41,14 +41,9 @@ data directory.
 The polling provider accepts two additional options with the following default
 values:
 
-    -threads=50
-    -period=1100
-
-The first is the number of threads used for polling for file changes
-and the second is the poll period in milliseconds.
-
-For sites with large request queues we recommend to increase the thread
-count further, 200 threads are used in production on NDGF.
+    -threads=50 - number of threads used for polling for file changes
+    -period=1100 - poll period in milliseconds
+    -graceperiod=1000 - grace period in milliseconds between detecting file complete and moving to destination
 
 ### Watching provider
 
@@ -69,14 +64,9 @@ the polling provider.
 The watching provider accepts additional options with the following default
 values:
 
-    -threads=50
-    -period=110
-    -watchtimeout=300
-
-threads is the number of threads used for polling for file completion,
-period is the poll period in milliseconds and watchtimeout is the
-timeout in seconds when a double-check is triggered of the state of
-watched directories in case of lost notification events.
+    -threads=50 - number of threads used for polling for file changes
+    -period=110 - poll period in milliseconds
+    -graceperiod=1000 - grace period in milliseconds between detecting file complete and moving to destination
 
 The default poll period for the watching provider is much lower compared
 to the polling provider, this is due to the fact that only files in

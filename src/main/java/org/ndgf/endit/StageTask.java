@@ -47,13 +47,12 @@ class StageTask implements PollingStageTask<Boolean>
 {
     public static final int ERROR_GRACE_PERIOD = 1000;
 
-    public static final int GRACE_PERIOD = 1000;
-
     private static final int PID = CLibrary.INSTANCE.getpid();
 
     private final static Logger LOGGER = LoggerFactory.getLogger(StageTask.class);
 
     private final Path requestDir;
+    private final int graceperiod;
     private final Path file;
     private final Path inFile;
     private final Path errorFile;
@@ -67,9 +66,10 @@ class StageTask implements PollingStageTask<Boolean>
     private boolean doComplete;
     private boolean doWatch;
 
-    StageTask(StageRequest request, Path requestDir, Path inDir)
+    StageTask(StageRequest request, Path requestDir, Path inDir, int graceperiod)
     {
         this.requestDir = requestDir;
+        this.graceperiod = graceperiod;
         file = Paths.get(request.getReplicaUri());
         FileAttributes fileAttributes = request.getFileAttributes();
         id = fileAttributes.getPnfsId().toString();
@@ -176,9 +176,14 @@ class StageTask implements PollingStageTask<Boolean>
                 LOGGER.debug("poll: inFile " + inFile + " size " + size);
                 if(delayUntil < 0) {
                     Files.deleteIfExists(requestFile);
-                    delayUntil = System.currentTimeMillis() + GRACE_PERIOD;
-                    LOGGER.debug("poll: inFile " + inFile + " delayUntil " + delayUntil);
-                    return null;
+                    if(graceperiod > 0) {
+                        delayUntil = System.currentTimeMillis() + graceperiod;
+                        LOGGER.debug("poll: inFile " + inFile + " delayUntil " + delayUntil);
+                        return null;
+                    }
+                    else {
+                        delayUntil = 0;
+                    }
                 }
                 if(delayUntil > 0 && System.currentTimeMillis() < delayUntil) {
                     LOGGER.debug("poll: inFile " + inFile + " delaying");

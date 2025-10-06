@@ -50,6 +50,7 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
     protected volatile Path outDir;
     protected volatile Path requestDir;
     protected volatile Path trashDir;
+    protected int graceperiod; /* ms */
 
     public AbstractEnditNearlineStorage(String type, String name)
     {
@@ -89,6 +90,8 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
         checkArgument(Files.isDirectory(outDir), outDir + " is not a directory.");
         checkArgument(Files.isDirectory(inDir), inDir + " is not a directory.");
         checkArgument(Files.isDirectory(trashDir), trashDir + " is not a directory.");
+
+        this.graceperiod = Integer.parseInt(properties.getOrDefault("graceperiod", "1000")); /* ms */
 
         try (DirectoryStream<Path> paths = Files.newDirectoryStream(requestDir)) {
             for (Path requestFile : paths) {
@@ -134,8 +137,8 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
     @Override
     protected ListenableFuture<Set<Checksum>> stage(final StageRequest request)
     {
-        final PollingStageTask<Boolean> starttask = new StageTask(request, requestDir, inDir);
-        final PollingStageTask<Boolean> completetask = new StageTask(request, requestDir, inDir);
+        final PollingStageTask<Boolean> starttask = new StageTask(request, requestDir, inDir, graceperiod);
+        final PollingStageTask<Boolean> completetask = new StageTask(request, requestDir, inDir, graceperiod);
 
         return Futures.transformAsync(
             Futures.transformAsync(
