@@ -67,6 +67,7 @@ values:
     -threads=50 - number of threads used for polling for file changes
     -period=110 - poll period in milliseconds
     -graceperiod=1000 - grace period in milliseconds between detecting file complete and moving to destination
+    -watchtimeout=300 - Timeout in seconds of inactivity before a double-check of watch directory is done
 
 The default poll period for the watching provider is much lower compared
 to the polling provider, this is due to the fact that only files in
