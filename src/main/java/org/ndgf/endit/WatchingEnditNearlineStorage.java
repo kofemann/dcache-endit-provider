@@ -65,7 +65,7 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
     @Override
     public synchronized void configure(Map<String, String> properties) throws IllegalArgumentException
     {
-        int threads = Integer.parseInt(properties.getOrDefault("threads", "50"));
+        int threads = Integer.parseInt(properties.getOrDefault("threads", "4"));
         int period = Integer.parseInt(properties.getOrDefault("period", "110")); /* ms */
         int watchtimeout = Integer.parseInt(properties.getOrDefault("watchtimeout", "300")); /* seconds */
 

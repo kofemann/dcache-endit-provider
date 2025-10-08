@@ -48,7 +48,7 @@ public class PollingEnditNearlineStorage extends AbstractEnditNearlineStorage
     @Override
     public synchronized void configure(Map<String, String> properties) throws IllegalArgumentException
     {
-        int threads = Integer.parseInt(properties.getOrDefault("threads", "50"));
+        int threads = Integer.parseInt(properties.getOrDefault("threads", "16"));
         int period = Integer.parseInt(properties.getOrDefault("period", "1100"));
 
         super.configure(properties);
