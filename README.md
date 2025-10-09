@@ -16,15 +16,23 @@ There are two flavors of the ENDIT provider: The polling provider and
 the watching provider.
 
 The watching provider uses the least system resources, and should be the
-most performant today when have huge queues.
+most performant today when having huge queues.
 
 The polling provider is a good alternative if the watching provider has
 issues due to OS limitations.
 
-The pool must be configured to leave free space for [ENDIT daemons]
-(pre)staging, leave at least 1 TiB free. If you have very large files
-and/or use many tape drives you might need even more space, remember to
-also modify the `retriever_buffersize` [ENDIT daemons] option.
+Note that since ENDIT v2 a late allocation scheme is used in order to
+expose all pending read requests to the pools. This minimizes tape
+remounts and thus optimizes access. For new installations, and when
+upgrading from ENDIT v1 to v2, note that:
+
+- The dCache pool size needs to be set lower than the actual file space
+  size, at least 100 GiB lower if the default [ENDIT daemons]
+  `retriever_buffersize` is used.
+- You need to allow a really large amount of concurrent restores and
+  thus might need an even larger restore timeout. ENDIT has been verified with
+  1 million requests on a single tape pool with modest hardware, central
+  dCache resources on your site might well limit this number.
 
 ### Polling provider
 
