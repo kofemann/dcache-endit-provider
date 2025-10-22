@@ -256,14 +256,14 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
         @Override
         public synchronized boolean cancel(boolean mayInterruptIfRunning)
         {
-            LOGGER.debug("cancel called");
+            LOGGER.debug("WatchingEnditNearlineStorage cancel: called");
             if (isDone()) {
-                LOGGER.debug("cancel false (isDone)");
+                LOGGER.debug("WatchingEnditNearlineStorage cancel: return false (isDone)");
                 return false;
             }
             try {
                 if (!task.abort()) {
-                    LOGGER.debug("cancel false (task.abort false)");
+                    LOGGER.debug("WatchingEnditNearlineStorage cancel: return false (task.abort false)");
                     return false;
                 }
                 super.cancel(mayInterruptIfRunning);
@@ -271,7 +271,7 @@ public class WatchingEnditNearlineStorage extends AbstractEnditNearlineStorage
                 setException(e);
             }
             unregister();
-            LOGGER.debug("cancel true");
+            LOGGER.debug("WatchingEnditNearlineStorage cancel: return true");
             return true;
         }
     }

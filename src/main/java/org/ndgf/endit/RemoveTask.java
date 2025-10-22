@@ -60,7 +60,7 @@ class RemoveTask implements Callable<Void>
         Files.write(tmpf, uri.toASCIIString().getBytes(StandardCharsets.UTF_8));
         Files.move(tmpf, trashDir.resolve(id), StandardCopyOption.ATOMIC_MOVE);
 
-        LOGGER.debug("call: wrote " + trashDir.resolve(id));
+        LOGGER.debug("RemoveTask call: wrote " + trashDir.resolve(id));
 
         return null;
     }

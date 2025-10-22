@@ -124,14 +124,14 @@ public class PollingEnditNearlineStorage extends AbstractEnditNearlineStorage
         @Override
         public synchronized boolean cancel(boolean mayInterruptIfRunning)
         {
-            LOGGER.debug("cancel called");
+            LOGGER.debug("PollingEnditNearlineStorage cancel: called");
             if (isDone()) {
-                LOGGER.debug("cancel false (isDone)");
+                LOGGER.debug("PollingEnditNearlineStorage cancel: return false (isDone)");
                 return false;
             }
             try {
                 if (!task.abort()) {
-                    LOGGER.debug("cancel false (task.abort false)");
+                    LOGGER.debug("PollingEnditNearlineStorage cancel: return false (task.abort false)");
                     return false;
                 }
                 super.cancel(mayInterruptIfRunning);
@@ -139,7 +139,7 @@ public class PollingEnditNearlineStorage extends AbstractEnditNearlineStorage
                 setException(e);
             }
             future.cancel(false);
-            LOGGER.debug("cancel true");
+            LOGGER.debug("PollingEnditNearlineStorage cancel: return true");
             return true;
         }
     }

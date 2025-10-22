@@ -50,7 +50,7 @@ public abstract class ListeningNearlineStorage implements NearlineStorage
     public void cancel(UUID uuid)
     {
         Future<?> task = tasks.get(uuid);
-        LOGGER.debug("cancel called");
+        LOGGER.debug("ListeningNearlineStorage cancel: called");
         if (task != null) {
             task.cancel(true);
         }
@@ -102,15 +102,15 @@ public abstract class ListeningNearlineStorage implements NearlineStorage
                 tasks.remove(request.getId());
                 try {
                     T result = Uninterruptibles.getUninterruptibly(future);
-                    LOGGER.debug("Calling request.completed(result)");
+                    LOGGER.debug("ListeningNearlineStorage add: Calling request.completed(result)");
                     request.completed(result);
                 } catch (ExecutionException | CancellationException e) {
                     if (e.getCause() instanceof EnditException) {
                         EnditException cause = (EnditException) e.getCause();
-                        LOGGER.debug("Calling request.failed(cause)");
+                        LOGGER.debug("ListeningNearlineStorage add: Calling request.failed(cause)");
                         request.failed(cause.getReturnCode(), cause.getMessage());
                     } else {
-                        LOGGER.debug("Calling request.failed(e)");
+                        LOGGER.debug("ListeningNearlineStorage add: Calling request.failed(e)");
                         request.failed(e);
                     }
                 }
