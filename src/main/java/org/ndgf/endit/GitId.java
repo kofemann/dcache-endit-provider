@@ -1,7 +1,6 @@
 /* dCache Endit Nearline Storage Provider
  *
- * Copyright (C) 2015 Gerd Behrmann
- * Modifications Copyright (C) 2025 Niklas Edmundsson
+ * * Copyright (C) 2025 Niklas Edmundsson
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -18,26 +17,22 @@
  */
 package org.ndgf.endit;
 
-import org.dcache.pool.nearline.spi.NearlineStorage;
-import org.dcache.pool.nearline.spi.NearlineStorageProvider;
+import java.io.IOException;
+import java.util.Properties;
 
-public class PollingEnditNearlineStorageProvider implements NearlineStorageProvider
-{
-    @Override
-    public String getName()
-    {
-        return "endit-polling";
+public final class GitId {
+    public static final String DESCRIBE;
+
+    static {
+        try {
+            Properties properties = new Properties();
+            properties.load(GitId.class.getClassLoader().getResourceAsStream("dcache-endit-provider-git.properties"));
+            DESCRIBE = String.valueOf(properties.get("git.commit.id.describe"));
+
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    @Override
-    public String getDescription()
-    {
-        return "ENDIT integration, polling provider, version " + GitId.DESCRIBE;
-    }
-
-    @Override
-    public NearlineStorage createNearlineStorage(String type, String name)
-    {
-        return new PollingEnditNearlineStorage(type, name);
-    }
+private GitId() {}
 }

@@ -1,6 +1,7 @@
 /* dCache Endit Nearline Storage Provider
  *
  * Copyright (C) 2015 Gerd Behrmann
+ * Modifications Copyright (C) 2025 Niklas Edmundsson
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as
@@ -31,7 +32,7 @@ public class WatchingEnditNearlineStorageProvider implements NearlineStorageProv
     @Override
     public String getDescription()
     {
-        return "Endit TSM integration provider.";
+        return "ENDIT integration, watching provider, version " + GitId.DESCRIBE;
     }
 
     @Override
