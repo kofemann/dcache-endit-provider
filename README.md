@@ -86,7 +86,7 @@ hsm create osm the-hsm-name endit-polling -directory=/path/to/endit/directory
 The endit directory must be on the same file system as the pool's
 data directory.
 
-The polling provider accepts two additional options with the following default
+The polling provider accepts additional options with the following default
 values:
 
     -threads=16 - number of threads used for polling for file changes
