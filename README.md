@@ -28,7 +28,7 @@ The polling provider is a good alternative if the watching provider has
 issues due to OS limitations.
 
 The endit directory must be on the same file system as the pool's
-data directory. This reason for this is that files must be able to be
+data directory. The reason for this is that files must be able to be
 moved from the staging `in/` directory using rename, and
 duplicated to the `out/` directory using hardlinks.
 
@@ -95,18 +95,21 @@ values:
 
 ### Notes on the provider behaviour
 
-* Providers does *not* monitor the request files once they are created.
+**FIXME:** Move this to the API section, the details pertain to the cooperation between the ENDIT provider
+and the integration with the tape/nearline storage system.
+
+* The request files are *not* monitored once they are created.
   Editing or deleting them has no consequences from the perspective of dCache.
-* Providers will check whether a requested file does exist already in the `/in` folder,
+* Provider will check whether a requested file already exists with the correct size in the `/in` folder,
   before it writes a new request file and, if so, move it into the pool's inventory without staging anything.
-* Providers will *overwrite* existing request files, when the pool receives a request
-  (that isn't satisfied by the content of the `/in` folder).
-  That is important regarding *retries* of recalls from the pool and *pool restarts*!
-* Providers will check for *error files* with every poll.
-  If such a file exists for a requested file, it's content is read and verbatim raised as an
+* Existing request file(s) are *overwritten* when the pool receives a request
+  (that isn't satisfied by the content of the `/in` folder as stated above).
+  This is important regarding *retries* of recalls from the pool and *pool restarts*!
+* Provider will check for *error files* with every poll.
+  If such a file exists for a requested file, it's content is read verbatim and raised as an
   exception from the staging task. Because the exception is raised, the task will be aborted
   and all related files should get purged.
-* The error file's path has to be `$enditdirectory/request/<pnfsid>.err`
+  The error file's path has to be `$enditdirectory/request/<pnfsid>.err`
 * Shutting down the provider and/or the pool does clean up existing request files.
 
 ## Performance tuning
@@ -178,7 +181,7 @@ mvn package
 
 ## API
 
-FIXME: The file-based API between the ENDIT dCache plugin and the
+**FIXME:** The file-based API between the ENDIT dCache plugin and the
 [ENDIT daemons] needs to be formally documented. For now, read the source of
 both for documentation.
 
