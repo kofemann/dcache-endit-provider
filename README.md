@@ -1,14 +1,20 @@
 # dCache ENDIT Provider
 
 This is the Efficient Northern Dcache Interface to TSM (ENDIT) [dCache]
-provider plugin. It interfaces with the
+provider plugin. It was originaly designed to interface with the
 [ENDIT daemons] to form an integration for the IBM Storage Protect
-(Spectrum Protect, TSM) storage system.
+(Spectrum Protect, TSM) storage system, since then additional
+integrations have materialized.
 
 ## Installation
 
-To install the plugin, unpack the tarball in the dCache
+To install the dCache ENDIT provider plugin, unpack the tarball in the dCache
 plugin directory (usually `/usr/local/share/dcache/plugins`).
+
+Since the provider configuration is dependant on the integration setup
+we recommend installing and setting up the integration with your
+tape/nearline storage system first, be it the [ENDIT daemons] or
+whatever fits your system.
 
 ## Configuration
 
@@ -21,6 +27,11 @@ most performant today when having huge queues.
 The polling provider is a good alternative if the watching provider has
 issues due to OS limitations.
 
+The endit directory must be on the same file system as the pool's
+data directory. This reason for this is that files must be able to be
+moved from the staging `in/` directory using rename, and
+duplicated to the `out/` directory using hardlinks.
+
 Note that since ENDIT v2 a late allocation scheme is used in order to
 expose all pending read requests to the pools. This minimizes tape
 remounts and thus optimizes access. For new installations, and when
@@ -31,7 +42,8 @@ upgrading from ENDIT v1 to v2, note that:
   `retriever_buffersize` is used.
 - You need to allow a really large amount of concurrent restores and
   thus might need an even larger restore timeout. ENDIT has been verified with
-  1 million requests on a single tape pool with modest hardware, central
+  1 million requests on a single tape pool with
+  [modest hardware](#development-performance-tests), central
   dCache resources on your site might well limit this number.
 
 ### Watching provider
@@ -94,8 +106,40 @@ values:
   If such a file exists for a requested file, it's content is read and verbatim raised as an
   exception from the staging task. Because the exception is raised, the task will be aborted
   and all related files should get purged.
-* The error file's path has to be `/request/<pnfsid>.err`
+* The error file's path has to be `$enditdirectory/request/<pnfsid>.err`
 * Shutting down the provider and/or the pool does clean up existing request files.
+
+## Performance tuning
+
+In order for the dCache ENDIT provider to be able to handle million(s)
+of pending stage requests a performant `$enditdirectory/request/`
+directory is required. Since this is volatile data that is recreated on
+dCache restart a simple solution is to use a `tmpfs` file system.
+
+There are more tuning considerations to be made depending on what is
+used to intrgrate with the ENDIT provider. When using the [ENDIT daemons]
+with million(s) of pending stage requests it might frequently consume a
+CPU core in order to make scheduling decisions. Also, any IO
+requirements of your data transfers apply.
+
+### Development performance tests
+
+The performance tests done during development are made on a dedicated
+test system with modest hardware specifications and a complete stack
+with the ENDIT provider and [ENDIT daemons] communicating with a
+production TSM server.
+
+When benchmarking the ENDIT staging rate a dedicated set of small files
+is used that are residing on FILE pools on the TSM server. This is done
+to avoid the need of having a very IO-bandwidth heavy, and thus
+expensive, test system.
+
+The test hardware basics:
+
+- Intel E2275G 4-core CPU
+- 64 G RAM
+- 4 x 960G SSD in RAID5
+- 25G Ethernet
 
 ## More documentation
 
