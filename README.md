@@ -120,7 +120,7 @@ directory is required. Since this is volatile data that is recreated on
 dCache restart a simple solution is to use a `tmpfs` file system.
 
 There are more tuning considerations to be made depending on what is
-used to intrgrate with the ENDIT provider. When using the [ENDIT daemons]
+used to integrate with the ENDIT provider. When using the [ENDIT daemons]
 with million(s) of pending stage requests it might frequently consume a
 CPU core in order to make scheduling decisions. Also, any IO
 requirements of your data transfers apply.
