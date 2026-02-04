@@ -34,25 +34,6 @@ upgrading from ENDIT v1 to v2, note that:
   1 million requests on a single tape pool with modest hardware, central
   dCache resources on your site might well limit this number.
 
-### Polling provider
-
-To use a provider that polls for changes, define a nearline storage in
-the dCache admin interface:
-
-```
-hsm create osm the-hsm-name endit-polling -directory=/path/to/endit/directory
-```
-
-The endit directory must be on the same file system as the pool's
-data directory.
-
-The polling provider accepts two additional options with the following default
-values:
-
-    -threads=16 - number of threads used for polling for file changes
-    -period=1100 - poll period in milliseconds
-    -graceperiod=1000 - grace period in milliseconds between detecting file complete and moving to destination
-
 ### Watching provider
 
 To use, define a nearline storage in the dCache admin interface:
@@ -80,6 +61,25 @@ values:
 The number of threads and default poll period for the watching provider
 is lower compared to the polling provider, this is due to the fact that
 only files in progress are monitored using polling.
+
+### Polling provider
+
+To use a provider that polls for changes, define a nearline storage in
+the dCache admin interface:
+
+```
+hsm create osm the-hsm-name endit-polling -directory=/path/to/endit/directory
+```
+
+The endit directory must be on the same file system as the pool's
+data directory.
+
+The polling provider accepts two additional options with the following default
+values:
+
+    -threads=16 - number of threads used for polling for file changes
+    -period=1100 - poll period in milliseconds
+    -graceperiod=1000 - grace period in milliseconds between detecting file complete and moving to destination
 
 ### Notes on the provider behaviour
 
