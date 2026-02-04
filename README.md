@@ -134,6 +134,9 @@ is used that are residing on FILE pools on the TSM server. This is done
 to avoid the need of having a very IO-bandwidth heavy, and thus
 expensive, test system.
 
+With this setup we expect to be able to handle 1M requests queued while
+staging requests at a rate in excess of 200 Hz.
+
 The test hardware basics:
 
 - Intel E2275G 4-core CPU
