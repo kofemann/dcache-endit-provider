@@ -19,10 +19,6 @@
 package org.ndgf.endit;
 
 import com.google.common.base.Throwables;
-import com.google.common.util.concurrent.AsyncFunction;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 
 import java.io.IOException;
 import java.net.URI;
@@ -32,8 +28,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import java.util.Collections;
 
+import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.SettableFuture;
 import org.dcache.pool.nearline.spi.FlushRequest;
 import org.dcache.pool.nearline.spi.RemoveRequest;
 import org.dcache.pool.nearline.spi.StageRequest;
@@ -51,6 +51,7 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
     protected volatile Path requestDir;
     protected volatile Path trashDir;
     protected int graceperiod; /* ms */
+    private volatile boolean lateAllocation;
 
     public AbstractEnditNearlineStorage(String type, String name)
     {
@@ -90,7 +91,7 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
         checkArgument(Files.isDirectory(outDir), outDir + " is not a directory.");
         checkArgument(Files.isDirectory(inDir), inDir + " is not a directory.");
         checkArgument(Files.isDirectory(trashDir), trashDir + " is not a directory.");
-
+        this.lateAllocation = properties.getOrDefault("late-allocate", "false").equalsIgnoreCase("true");
         this.graceperiod = Integer.parseInt(properties.getOrDefault("graceperiod", "1000")); /* ms */
 
         try (DirectoryStream<Path> paths = Files.newDirectoryStream(requestDir)) {
@@ -140,59 +141,76 @@ public abstract class AbstractEnditNearlineStorage extends ListeningNearlineStor
         final PollingStageTask<Boolean> starttask = new StageTask(request, requestDir, inDir, graceperiod);
         final PollingStageTask<Boolean> completetask = new StageTask(request, requestDir, inDir, graceperiod);
 
-        return Futures.transformAsync(
-            Futures.transformAsync(
-                Futures.transformAsync(
-                    Futures.transformAsync(
-                            request.activate()
-                            ,
-                            new AsyncFunction<Void, Boolean>()
-                            {
-                                @Override
-                                public ListenableFuture<Boolean> apply(Void ignored) throws Exception
-                                {
-                                    Boolean done = starttask.start();
-                                    if (done!=null && done) {
-                                        return Futures.immediateFuture(done);
-                                    } else {
-                                        return schedule(starttask);
-                                    }
-                                }
-                            }, executor()
-                        ),
+        // we use SettableFutures to chain the asynchronous execution by setting value when previous stage is complete.
+        SettableFuture<Boolean> stageComplete = SettableFuture.create();
+        SettableFuture<Set<Checksum>> checksumAvailable = SettableFuture.create();
 
-                        new AsyncFunction<Boolean, Void>()
-                        {
-                            @Override
-                            public ListenableFuture<Void> apply(Boolean ignored) throws Exception
-                            {
-                                return request.allocate();
-                            }
-                        }, executor()
-                    ),
-                    new AsyncFunction<Void, Boolean>()
-                    {
-                        @Override
-                        public ListenableFuture<Boolean> apply(Void ignored) throws Exception
-                        {
-                            Boolean done = completetask.complete();
-                            if (done!=null && done) {
-                                return Futures.immediateFuture(done);
+        if (lateAllocation) {
+
+            // Activate the request and start the stage task.
+            request.activate()
+                    .addListener(() -> {
+                        try {
+                            Boolean done = starttask.start();
+                            if (done != null && done) {
+                                stageComplete.set(Boolean.TRUE);
                             } else {
-                                return schedule(completetask);
+                                schedule(starttask).addListener(() -> stageComplete.set(Boolean.TRUE), executor());
                             }
+                        } catch (Exception e) {
+                            stageComplete.setException(e);
                         }
-                    }, executor()
-                ),
+                    }, executor());
 
-            new AsyncFunction<Boolean, Set<Checksum>>()
-            {
-                @Override
-                public ListenableFuture<Set<Checksum>> apply(Boolean ignored) throws Exception
-                {
-                    return Futures.immediateFuture(completetask.checksum());
+            // When the stage task is complete, run space allocation calculate the checksum.
+            stageComplete.addListener(() -> {
+
+                request.allocate()
+                        .addListener(() -> {
+                            try {
+                                checksumAvailable.set(completetask.checksum());
+                            } catch (Exception e) {
+                                checksumAvailable.setException(e);
+                            }
+                        }, executor());
+            }, executor());
+
+        } else {
+
+            SettableFuture<Void> allocated = SettableFuture.create();
+
+            // active request and allocate the space.
+            request.activate()
+                    .addListener(() -> request.allocate()
+                                    .addListener(() -> allocated.set(null), executor()),
+                            executor()
+                    );
+
+            // once space is allocated, start the stage task.
+            allocated.addListener(() -> {
+                try {
+                    Boolean done = starttask.start();
+                    if (done != null && done) {
+                        stageComplete.set(Boolean.TRUE);
+                    } else {
+                        schedule(starttask).addListener(() -> stageComplete.set(Boolean.TRUE), executor());
+                    }
+                } catch (Exception e) {
+                    stageComplete.setException(e);
                 }
-            }, executor()
-        );
+            }, executor());
+
+
+            // When the stage task is complete, run space allocation calculate the checksum.
+            stageComplete.addListener(() -> {
+                try {
+                    checksumAvailable.set(completetask.checksum());
+                } catch (Exception e) {
+                    checksumAvailable.setException(e);
+                }
+            }, executor());
+        }
+
+        return checksumAvailable;
     }
 }
